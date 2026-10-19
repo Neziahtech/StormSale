@@ -9,6 +9,14 @@ import {
 } from "@stellar/stellar-sdk";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { signWalletTransaction, getSorobanRpcServer, type WalletType } from "./stellar";
+import {
+  type SplitPlan,
+  type SplitAllocationReceipt,
+  computeSplitAllocations,
+  toSplitAllocationReceipts,
+  buildSplitPaymentOperations,
+  xlmToStroops,
+} from "./commissionSplit";
 
 export interface ClaimableCampaignItem {
   campaignId: number;
@@ -31,6 +39,13 @@ export interface BatchClaimReceipt {
     campaignName: string;
     claimedXlm: number;
   }[];
+  /**
+   * Per-destination payment operations executed inside the same atomic
+   * transaction envelope when a Commission Auto-Split plan is active (#167).
+   */
+  splitAllocations?: SplitAllocationReceipt[];
+  /** Count of extra payment operations appended to the claim transaction. */
+  paymentOperationCount?: number;
 }
 
 /**
@@ -86,13 +101,16 @@ export function calculateTotalClaimableXlm(items: ClaimableCampaignItem[]): numb
  * Executes an Automated Batch Commission Claim Dispatcher:
  * 1. Takes an array of campaign IDs.
  * 2. Packages multiple `claim_payout` Soroban contract calls into a single Stellar transaction envelope.
- * 3. Signs and submits one transaction instead of individual prompts.
- * 4. Itemizes claimed amounts from each campaign in the receipt.
+ * 3. Appends one `payment` operation per auto-split destination (issue #167) to the
+ *    same envelope, so commissions route to vault accounts atomically upon claim.
+ * 4. Signs and submits one transaction instead of individual prompts.
+ * 5. Itemizes claimed amounts and split allocations in the receipt.
  */
 export async function executeBatchCommissionClaim(
   affiliateAddress: string,
   campaignsToClaim: ClaimableCampaignItem[],
   walletType: WalletType = "freighter",
+  splitPlan?: SplitPlan | null,
 ): Promise<BatchClaimReceipt> {
   if (campaignsToClaim.length === 0) {
     throw new Error("No campaigns selected for batch claim.");
@@ -104,6 +122,15 @@ export async function executeBatchCommissionClaim(
     campaignName: c.campaignName,
     claimedXlm: c.claimableXlm,
   }));
+
+  // Pre-compute the atomic split across destinations (exact stroop accounting).
+  const activeDestinations = splitPlan?.enabled ? splitPlan.destinations : [];
+  const allocations = computeSplitAllocations(
+    xlmToStroops(totalClaimedXlm),
+    activeDestinations,
+  );
+  const splitAllocations = toSplitAllocationReceipts(allocations);
+  const paymentOperationCount = splitAllocations.length;
 
   // If mock/test/readonly fallback, return instant simulated transaction receipt
   if (
@@ -120,6 +147,8 @@ export async function executeBatchCommissionClaim(
       totalClaimedXlm,
       timestamp: Date.now(),
       itemizedClaims,
+      splitAllocations: splitAllocations.length > 0 ? splitAllocations : undefined,
+      paymentOperationCount,
     };
   }
 
@@ -140,11 +169,15 @@ export async function executeBatchCommissionClaim(
       totalClaimedXlm,
       timestamp: Date.now(),
       itemizedClaims,
+      splitAllocations: splitAllocations.length > 0 ? splitAllocations : undefined,
+      paymentOperationCount,
     };
   }
 
-  // 2. Build multi-operation transaction envelope
-  const baseOpFee = Number(BASE_FEE) * campaignsToClaim.length;
+  // 2. Build multi-operation transaction envelope:
+  //    claim_payout invocations first, then split payment operations — all atomic.
+  const operationCount = campaignsToClaim.length + paymentOperationCount;
+  const baseOpFee = Number(BASE_FEE) * operationCount;
   const txBuilder = new TransactionBuilder(account, {
     fee: String(baseOpFee),
     networkPassphrase: STELLAR_CONFIG.networkPassphrase,
@@ -157,6 +190,10 @@ export async function executeBatchCommissionClaim(
       nativeToScVal(campaign.campaignId, { type: "u32" }),
     );
     txBuilder.addOperation(callOp);
+  }
+
+  for (const paymentOp of buildSplitPaymentOperations(allocations)) {
+    txBuilder.addOperation(paymentOp);
   }
 
   const preliminaryTx = txBuilder.setTimeout(90).build();
@@ -178,6 +215,8 @@ export async function executeBatchCommissionClaim(
         totalClaimedXlm,
         timestamp: Date.now(),
         itemizedClaims,
+        splitAllocations: splitAllocations.length > 0 ? splitAllocations : undefined,
+        paymentOperationCount,
       };
     }
   } catch (simErr) {
@@ -194,5 +233,7 @@ export async function executeBatchCommissionClaim(
     totalClaimedXlm,
     timestamp: Date.now(),
     itemizedClaims,
+    splitAllocations: splitAllocations.length > 0 ? splitAllocations : undefined,
+    paymentOperationCount,
   };
 }
