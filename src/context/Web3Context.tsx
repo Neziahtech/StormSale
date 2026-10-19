@@ -17,6 +17,7 @@ import type { WalletType } from "../lib/stellar";
 import { STELLAR_CONFIG } from "../config/stellar";
 import { registerUser } from "../utils/api";
 import type { ClaimableCampaignItem, BatchClaimReceipt } from "../lib/batchClaim";
+import type { SplitPlan } from "../lib/commissionSplit";
 import type { PasskeyCredentialRecord } from "../lib/passkeySigner";
 
 export interface Web3ContextType {
@@ -58,7 +59,10 @@ export interface Web3ContextType {
   claimPayoutOnChain: (campaignId: number) => Promise<{ success: boolean; txHash?: string }>;
   refundCampaignEscrow: (campaignId: number) => Promise<{ success: boolean; txHash?: string }>;
 
-  batchClaimPayoutsOnChain: (campaigns: ClaimableCampaignItem[]) => Promise<BatchClaimReceipt>;
+  batchClaimPayoutsOnChain: (
+    campaigns: ClaimableCampaignItem[],
+    splitPlan?: SplitPlan | null,
+  ) => Promise<BatchClaimReceipt>;
 
   registerPasskeyAccount: (userName?: string) => Promise<PasskeyCredentialRecord>;
 
@@ -309,13 +313,18 @@ export function Web3Provider({ children }: { children: ReactNode }) {
   };
 
   // Soroban: Automated Batch Commission Claim Dispatcher across Multiple Campaigns
-  const batchClaimPayoutsOnChain = async (campaigns: ClaimableCampaignItem[]) => {
+  // (optionally routes the withdrawn total to auto-split vault destinations in the same envelope)
+  const batchClaimPayoutsOnChain = async (
+    campaigns: ClaimableCampaignItem[],
+    splitPlan?: SplitPlan | null,
+  ) => {
     if (!userAddress) throw new Error("Wallet not connected");
     const { executeBatchCommissionClaim } = await import("../lib/batchClaim");
     const res = await executeBatchCommissionClaim(
       userAddress,
       campaigns,
       connectorType || "freighter",
+      splitPlan,
     );
     setTimeout(() => refreshBalance(userAddress), 1000);
     return res;
