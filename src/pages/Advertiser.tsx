@@ -8,6 +8,7 @@ import { CampaignAnalytics } from "../components/advertiser/CampaignAnalytics";
 import { MyCampaignsList } from "../components/advertiser/MyCampaignsList";
 import { WebhookManager } from "../components/advertiser/WebhookManager";
 import { BrandCustomizer } from "../components/advertiser/BrandCustomizer";
+import { AuditAccessPortal } from "../components/advertiser/AuditAccessPortal";
 import { NotificationProvider } from "../context/NotificationContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import {
@@ -21,6 +22,7 @@ import {
   Megaphone,
   Radio,
   Palette,
+  FileSearch,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -39,6 +41,7 @@ const AdvertiserContent: React.FC<AdvertiserProps> = ({ onBack }) => {
     { id: "log-sale", label: "Log Encrypted Sale", icon: Shield },
     { id: "webhooks", label: "Postback Webhooks", icon: Radio },
     { id: "grant-access", label: "Grant Audit Access", icon: Eye },
+    { id: "audit-logs", label: "Audit Access Logs", icon: FileSearch },
     { id: "analytics", label: "Campaign Analytics", icon: BarChart3 },
   ];
 
@@ -54,6 +57,8 @@ const AdvertiserContent: React.FC<AdvertiserProps> = ({ onBack }) => {
         return <WebhookManager />;
       case "grant-access":
         return <GrantAccessForm />;
+      case "audit-logs":
+        return <AuditAccessPortal />;
       case "analytics":
         return <CampaignAnalytics />;
       case "overview":
