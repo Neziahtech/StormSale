@@ -22,9 +22,9 @@ import {
   SETTINGS_STORAGE_KEY,
 } from "../components/affiliate/AffiliateSettings";
 
-const MAIN = Keypair.random().publicKey;
-const VAULT = Keypair.random().publicKey;
-const THIRD = Keypair.random().publicKey;
+const MAIN = Keypair.random().publicKey();
+const VAULT = Keypair.random().publicKey();
+const THIRD = Keypair.random().publicKey();
 
 const campaignItems: ClaimableCampaignItem[] = [
   {
