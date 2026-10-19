@@ -18,6 +18,8 @@ import {
   Filter,
   Eye,
 } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Clock, FileText, Download, Filter } from "lucide-react";
+import { getExportAuditHistory } from "../../lib/auditor/exportService";
 
 type AuditStatus = "Verified" | "Denied" | "Pending";
 
@@ -109,6 +111,21 @@ export const AuditHistory = () => {
   const verified = auditRecords.filter((r) => r.status === "Verified").length;
   const denied = auditRecords.filter((r) => r.status === "Denied").length;
   const pending = auditRecords.filter((r) => r.status === "Pending").length;
+  const dynamicRecords: AuditRecord[] = [
+    ...getExportAuditHistory().map((evt) => ({
+      saleId: `SOC2-${evt.id.slice(0, 6)}`,
+      campaign: `SOC 2 Evidence Pack (${evt.filename})`,
+      campaignAddress: evt.exporterAddress,
+      status: "Verified" as AuditStatus,
+      timestamp: evt.timestamp.slice(0, 16).replace("T", " "),
+      notes: `Root: ${evt.rootDigest.slice(0, 12)}... (${evt.totalFiles} files bundled)`,
+    })),
+    ...auditRecords,
+  ];
+
+  const verified = dynamicRecords.filter((r) => r.status === "Verified").length;
+  const denied = dynamicRecords.filter((r) => r.status === "Denied").length;
+  const pending = dynamicRecords.filter((r) => r.status === "Pending").length;
 
   return (
     <div className="space-y-6">
@@ -172,6 +189,7 @@ export const AuditHistory = () => {
           <CardDescription className="text-zinc-500 dark:text-zinc-400">
             {auditRecords.length} total entries logged on-chain for this
             organization
+            {dynamicRecords.length} total entries logged on-chain
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -182,6 +200,7 @@ export const AuditHistory = () => {
               </p>
             )}
             {auditRecords.map((record, i) => {
+            {dynamicRecords.map((record, i) => {
               const cfg = statusConfig[record.status];
               const StatusIcon = cfg.icon;
               return (

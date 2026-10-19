@@ -122,7 +122,8 @@ export const ClaimPayouts = () => {
     });
 
     try {
-      const res = await claimPayoutOnChain(campaignId);
+      const target = campaigns.find((c) => c.campaignId === campaignId);
+      const res = await claimPayoutOnChain(campaignId, target?.assetCode);
       setCampaigns((prev) =>
         prev.map((c) => (c.campaignId === campaignId ? { ...c, status: "claimed" } : c)),
       );
@@ -143,7 +144,6 @@ export const ClaimPayouts = () => {
       setClaimingId(null);
     }
   };
-
   return (
     <div className="space-y-8">
       {/* Page Title */}
