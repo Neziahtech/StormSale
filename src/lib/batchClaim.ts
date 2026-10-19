@@ -221,19 +221,6 @@ export async function executeBatchCommissionClaim(
   let account: Account;
   try {
     account = await server.getAccount(affiliateAddress);
-  } catch (err: any) {
-    // If account unfunded on testnet, fallback to mock hash for demonstration
-    const fallbackHash =
-      "tx_batch_" + Date.now().toString(16) + "_" + Math.random().toString(16).slice(2, 8);
-    return {
-      success: true,
-      txHash: fallbackHash,
-      totalClaimedXlm,
-      timestamp: Date.now(),
-      itemizedClaims,
-      splitAllocations: splitAllocations.length > 0 ? splitAllocations : undefined,
-      paymentOperationCount,
-    };
   } catch (err: unknown) {
     const reason = err instanceof Error ? err.message : String(err);
     throw new Error(
@@ -265,29 +252,6 @@ export async function executeBatchCommissionClaim(
 
   const preliminaryTx = txBuilder.setTimeout(90).build();
 
-  // 3. Simulate batch transaction
-  try {
-    const simResponse = await server.simulateTransaction(preliminaryTx);
-    if (!rpc.Api.isSimulationError(simResponse)) {
-      const preparedTx = rpc.assembleTransaction(preliminaryTx, simResponse).build();
-      const signedXdr = await signWalletTransaction(preparedTx.toXDR(), walletType);
-      const signedTx = TransactionBuilder.fromXDR(signedXdr, STELLAR_CONFIG.networkPassphrase);
-
-      const sendResponse = await server.sendTransaction(signedTx);
-      const txHash = sendResponse.hash || "0xbatch_confirmed";
-
-      return {
-        success: true,
-        txHash,
-        totalClaimedXlm,
-        timestamp: Date.now(),
-        itemizedClaims,
-        splitAllocations: splitAllocations.length > 0 ? splitAllocations : undefined,
-        paymentOperationCount,
-      };
-    }
-  } catch (simErr) {
-    console.warn("Soroban RPC batch simulation note:", simErr);
   // 3. Simulate batch transaction. Any RPC/simulation failure is fatal:
   // the caller must see the error rather than a fabricated receipt.
   const simResponse = await server.simulateTransaction(preliminaryTx);

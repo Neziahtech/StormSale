@@ -18,7 +18,6 @@ import {
   Filter,
   Eye,
 } from "lucide-react";
-import { CheckCircle2, AlertTriangle, Clock, FileText, Download, Filter } from "lucide-react";
 import { getExportAuditHistory } from "../../lib/auditor/exportService";
 
 type AuditStatus = "Verified" | "Denied" | "Pending";
@@ -108,9 +107,6 @@ export const AuditHistory = () => {
   const { org } = useAuditorTenancy();
   // Tenant boundary: the trail only ever shows this organization's sales.
   const auditRecords = recordsScopedToOrg(org.id, ALL_AUDIT_RECORDS);
-  const verified = auditRecords.filter((r) => r.status === "Verified").length;
-  const denied = auditRecords.filter((r) => r.status === "Denied").length;
-  const pending = auditRecords.filter((r) => r.status === "Pending").length;
   const dynamicRecords: AuditRecord[] = [
     ...getExportAuditHistory().map((evt) => ({
       saleId: `SOC2-${evt.id.slice(0, 6)}`,
@@ -187,9 +183,8 @@ export const AuditHistory = () => {
             All Audit Records
           </CardTitle>
           <CardDescription className="text-zinc-500 dark:text-zinc-400">
-            {auditRecords.length} total entries logged on-chain for this
+            {dynamicRecords.length} total entries logged on-chain for this
             organization
-            {dynamicRecords.length} total entries logged on-chain
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -199,7 +194,6 @@ export const AuditHistory = () => {
                 No audit records exist within the {org.shortName} scope.
               </p>
             )}
-            {auditRecords.map((record, i) => {
             {dynamicRecords.map((record, i) => {
               const cfg = statusConfig[record.status];
               const StatusIcon = cfg.icon;

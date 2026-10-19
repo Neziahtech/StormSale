@@ -16,11 +16,12 @@ import {
   Eye,
   ClipboardList,
   FileCheck,
+  ShieldCheck,
+  Network,
   Building2,
   KeyRound,
   Lock,
 } from "lucide-react";
-import { BarChart3, Eye, ClipboardList, FileCheck, ShieldCheck, Network } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface AuditorProps {
